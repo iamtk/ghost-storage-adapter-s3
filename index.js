@@ -152,6 +152,7 @@ class Store extends LocalStorage {
   serve() {
     var _this4 = this;
 
+    console.log(LocalStorage);
     return function (req, res, next) {
       return _this4.s3().getObject({
         Bucket: _this4.bucket,
