@@ -1,5 +1,6 @@
 import AWS from 'aws-sdk'
 import BaseStore from 'ghost-storage-base'
+import LocalFileStore from ''
 import { join } from 'path'
 import { readFile } from 'fs'
 
@@ -127,16 +128,18 @@ class Store extends BaseStore {
 
   read (options) {
     options = options || {}
+    const directory = stripEndingSlash(this.pathPrefix || '');
 
     return new Promise((resolve, reject) => {
       // remove trailing slashes
       let path = (options.path || '').replace(/\/$|\\$/, '')
 
-      // check if path is stored in s3 handled by us
-      if (!path.startsWith(this.host)) {
-        reject(new Error(`${path} is not stored in s3`))
+      // check if path is stored in s3 then stripping it
+      if (path.startsWith(this.host)) {
+        path = path.substring(this.host.length)
+      } else {
+        path = join(directory, path)
       }
-      path = path.substring(this.host.length)
 
       this.s3()
         .getObject({
