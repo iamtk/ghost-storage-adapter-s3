@@ -14,15 +14,13 @@ var _ghostStorageBase = require('ghost-storage-base');
 
 var _ghostStorageBase2 = _interopRequireDefault(_ghostStorageBase);
 
-var _ = require('');
-
-var _2 = _interopRequireDefault(_);
-
 var _path = require('path');
 
 var _fs = require('fs');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var LocalStorage = require('../../../../core/server/adapters/LocalFileStorage.js');
 
 var readFileAsync = function readFileAsync(fp) {
   return new Promise(function (resolve, reject) {
@@ -38,7 +36,7 @@ var stripEndingSlash = function stripEndingSlash(s) {
   return s.indexOf('/') === s.length - 1 ? s.substring(0, s.length - 1) : s;
 };
 
-class Store extends _ghostStorageBase2.default {
+class Store extends LocalStorage {
   constructor() {
     var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
@@ -161,8 +159,7 @@ class Store extends _ghostStorageBase2.default {
       }).on('httpHeaders', function (statusCode, headers, response) {
         return res.set(headers);
       }).createReadStream().on('error', function (err) {
-        res.status(404);
-        next(err);
+        return super.serve()(req, res, next);
       }).pipe(res);
     };
   }
@@ -180,16 +177,15 @@ class Store extends _ghostStorageBase2.default {
       // check if path is stored in s3 then stripping it
       if (path.startsWith(_this5.host)) {
         path = path.substring(_this5.host.length);
+        _this5.s3().getObject({
+          Bucket: _this5.bucket,
+          Key: stripLeadingSlash(path)
+        }, function (err, data) {
+          return err ? reject(err) : resolve(data.Body);
+        });
       } else {
-        path = (0, _path.join)(directory, path);
+        return super.read(options);
       }
-
-      _this5.s3().getObject({
-        Bucket: _this5.bucket,
-        Key: stripLeadingSlash(path)
-      }, function (err, data) {
-        return err ? reject(err) : resolve(data.Body);
-      });
     });
   }
 }

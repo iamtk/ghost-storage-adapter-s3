@@ -1,14 +1,15 @@
 import AWS from 'aws-sdk'
 import BaseStore from 'ghost-storage-base'
-import LocalFileStore from ''
 import { join } from 'path'
 import { readFile } from 'fs'
+
+const LocalStorage = require('../../../../core/server/adapters/LocalFileStorage.js');
 
 const readFileAsync = fp => new Promise((resolve, reject) => readFile(fp, (err, data) => err ? reject(err) : resolve(data)))
 const stripLeadingSlash = s => s.indexOf('/') === 0 ? s.substring(1) : s
 const stripEndingSlash = s => s.indexOf('/') === (s.length - 1) ? s.substring(0, s.length - 1) : s
 
-class Store extends BaseStore {
+class Store extends LocalStorage {
   constructor (config = {}) {
     super(config)
 
@@ -120,8 +121,7 @@ class Store extends BaseStore {
         .on('httpHeaders', (statusCode, headers, response) => res.set(headers))
         .createReadStream()
         .on('error', err => {
-          res.status(404)
-          next(err)
+          return super.serve()(req, res, next);
         })
         .pipe(res)
   }
@@ -137,15 +137,14 @@ class Store extends BaseStore {
       // check if path is stored in s3 then stripping it
       if (path.startsWith(this.host)) {
         path = path.substring(this.host.length)
+        this.s3()
+          .getObject({
+            Bucket: this.bucket,
+            Key: stripLeadingSlash(path)
+          }, (err, data) => err ? reject(err) : resolve(data.Body))
       } else {
-        path = join(directory, path)
+        return super.read(options);
       }
-
-      this.s3()
-        .getObject({
-          Bucket: this.bucket,
-          Key: stripLeadingSlash(path)
-        }, (err, data) => err ? reject(err) : resolve(data.Body))
     })
   }
 }
