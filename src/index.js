@@ -1,9 +1,8 @@
 import AWS from 'aws-sdk'
-import BaseStore from 'ghost-storage-base'
 import { join } from 'path'
 import { readFile } from 'fs'
 
-const LocalStorage = require('../../../../core/server/adapters/LocalFileStorage.js');
+const LocalStorage = require('../../../../current/core/server/adapters/storage/LocalFileStorage.js');
 
 const readFileAsync = fp => new Promise((resolve, reject) => readFile(fp, (err, data) => err ? reject(err) : resolve(data)))
 const stripLeadingSlash = s => s.indexOf('/') === 0 ? s.substring(1) : s
@@ -122,7 +121,7 @@ class Store extends LocalStorage {
         .on('httpHeaders', (statusCode, headers, response) => res.set(headers))
         .createReadStream()
         .on('error', err => {
-          return super.serve()(req, res, next);
+          return LocalStorage.prototype.serve.call(this)(req, res, next);
         })
         .pipe(res)
   }
@@ -144,7 +143,7 @@ class Store extends LocalStorage {
             Key: stripLeadingSlash(path)
           }, (err, data) => err ? reject(err) : resolve(data.Body))
       } else {
-        return super.read(options);
+        return LocalStorage.prototype.read.call(this, options);
       }
     })
   }

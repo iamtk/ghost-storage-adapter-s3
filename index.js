@@ -10,17 +10,13 @@ var _awsSdk = require('aws-sdk');
 
 var _awsSdk2 = _interopRequireDefault(_awsSdk);
 
-var _ghostStorageBase = require('ghost-storage-base');
-
-var _ghostStorageBase2 = _interopRequireDefault(_ghostStorageBase);
-
 var _path = require('path');
 
 var _fs = require('fs');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var LocalStorage = require('../../../../core/server/adapters/LocalFileStorage.js');
+var LocalStorage = require('../../../../current/core/server/adapters/storage/LocalFileStorage.js');
 
 var readFileAsync = function readFileAsync(fp) {
   return new Promise(function (resolve, reject) {
@@ -160,7 +156,7 @@ class Store extends LocalStorage {
       }).on('httpHeaders', function (statusCode, headers, response) {
         return res.set(headers);
       }).createReadStream().on('error', function (err) {
-        return super.serve()(req, res, next);
+        return LocalStorage.prototype.serve.call(_this4)(req, res, next);
       }).pipe(res);
     };
   }
@@ -185,7 +181,7 @@ class Store extends LocalStorage {
           return err ? reject(err) : resolve(data.Body);
         });
       } else {
-        return super.read(options);
+        return LocalStorage.prototype.read.call(_this5, options);
       }
     });
   }
