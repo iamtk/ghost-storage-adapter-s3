@@ -14,7 +14,13 @@ var _path = require('path');
 
 var _fs = require('fs');
 
+var _imageTransform = require('@tryghost/image-transform');
+
+var _imageTransform2 = _interopRequireDefault(_imageTransform);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
 var LocalStorage = require('../../../../current/core/server/adapters/storage/LocalFileStorage.js');
 
@@ -119,6 +125,19 @@ class Store extends LocalStorage {
 
     var directory = targetDir || this.getTargetDir(this.pathPrefix);
 
+    var imageSizes = activeTheme.get().config('image_sizes');
+
+    var imageDimensions = Object.keys(imageSizes).reduce(function (dimensions, size) {
+      var _imageSizes$size = imageSizes[size],
+          width = _imageSizes$size.width,
+          height = _imageSizes$size.height;
+
+      var dimension = (width ? 'w' + width : '') + (height ? 'h' + height : '');
+      return Object.assign({
+        [dimension]: imageSizes[size]
+      }, dimensions);
+    }, {});
+
     return new Promise(function (resolve, reject) {
       Promise.all([_this3.getUniqueFileName(image, directory), readFileAsync(image.path)]).then(function (_ref) {
         var _ref2 = _slicedToArray(_ref, 2),
@@ -133,11 +152,25 @@ class Store extends LocalStorage {
           ContentType: image.type,
           Key: stripLeadingSlash(fileName)
         };
+
         if (_this3.serverSideEncryption !== '') {
           config.ServerSideEncryption = _this3.serverSideEncryption;
         }
-        _this3.s3().putObject(config, function (err, data) {
-          return err ? reject(err) : resolve(`${_this3.host}/${fileName}`);
+
+        Promise.all([_this3.s3().putObject(config).promise()].concat(_toConsumableArray(Object.keys(imageDimensions).map(function (imageDimension) {
+          return Promise.all([_this3.getUniqueFileName(image, directory + 'size/' + imageDimension), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
+            var _ref4 = _slicedToArray(_ref3, 2),
+                name = _ref4[0],
+                transformed = _ref4[1];
+
+            return Object.assign({}, config, { Body: transformed, Key: stripLeadingSlash(name) });
+          }).then(function (config) {
+            return _this3.s3().putObject(config).promise();
+          });
+        })))).then(function () {
+          return resolve(`${_this3.host}/${fileName}`);
+        }).catch(function (err) {
+          return reject(err);
         });
       }).catch(function (err) {
         return reject(err);

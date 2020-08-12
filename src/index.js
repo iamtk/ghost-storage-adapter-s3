@@ -1,6 +1,7 @@
 import AWS from 'aws-sdk'
 import { join } from 'path'
 import { readFile } from 'fs'
+import imageTransform from '@tryghost/image-transform'
 
 const LocalStorage = require('../../../../current/core/server/adapters/storage/LocalFileStorage.js');
 
@@ -87,6 +88,16 @@ class Store extends LocalStorage {
   save (image, targetDir) {
     const directory = targetDir || this.getTargetDir(this.pathPrefix)
 
+    const imageSizes = activeTheme.get().config('image_sizes');
+
+    const imageDimensions = Object.keys(imageSizes).reduce((dimensions, size) => {
+        const {width, height} = imageSizes[size];
+        const dimension = (width ? 'w' + width : '') + (height ? 'h' + height : '');
+        return Object.assign({
+            [dimension]: imageSizes[size]
+        }, dimensions);
+    }, {});
+
     return new Promise((resolve, reject) => {
       Promise.all([
         this.getUniqueFileName(image, directory),
@@ -100,11 +111,23 @@ class Store extends LocalStorage {
           ContentType: image.type,
           Key: stripLeadingSlash(fileName)
         }
+
         if (this.serverSideEncryption !== '') {
           config.ServerSideEncryption = this.serverSideEncryption
         }
-        this.s3()
-          .putObject(config, (err, data) => err ? reject(err) : resolve(`${this.host}/${fileName}`))
+
+        Promise.all([
+          this.s3().putObject(config).promise(),
+          ...Object.keys(imageDimensions).map(imageDimension => {
+            return Promise.all([
+              this.getUniqueFileName(image, directory + 'size/' + imageDimension),
+              imageTransform.resizeFromBuffer(file, imageDimensions[imageDimension]),
+            ])
+            .then(([name, transformed]) => Object.assign({}, config, { Body: transformed, Key: stripLeadingSlash(name) }))
+            .then(config => this.s3().putObject(config).promise());
+          }),
+        ]).then(() => resolve(`${this.host}/${fileName}`))
+          .catch((err) => reject(err))
       })
       .catch(err => reject(err))
     })
