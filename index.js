@@ -22,7 +22,8 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
-var LocalStorage = require('../../../../current/core/server/adapters/storage/LocalFileStorage.js');
+var activeTheme = require((0, _path.join)(process.cwd(), 'current/core/frontend/services/themes/active'));
+var LocalStorage = require((0, _path.join)(process.cwd(), 'current/core/server/adapters/storage/LocalFileStorage'));
 
 var readFileAsync = function readFileAsync(fp) {
   return new Promise(function (resolve, reject) {
@@ -139,7 +140,7 @@ class Store extends LocalStorage {
     }, {});
 
     return new Promise(function (resolve, reject) {
-      Promise.all([_this3.getUniqueFileName(image, directory), readFileAsync(image.path)]).then(function (_ref) {
+      Promise.all([_this3.getUniqueFileName(image, (0, _path.join)(directory, 'original')), readFileAsync(image.path)]).then(function (_ref) {
         var _ref2 = _slicedToArray(_ref, 2),
             fileName = _ref2[0],
             file = _ref2[1];
@@ -158,7 +159,7 @@ class Store extends LocalStorage {
         }
 
         Promise.all([_this3.s3().putObject(config).promise()].concat(_toConsumableArray(Object.keys(imageDimensions).map(function (imageDimension) {
-          return Promise.all([_this3.getUniqueFileName(image, directory + 'size/' + imageDimension), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
+          return Promise.all([_this3.getUniqueFileName(image, (0, _path.join)(directory, 'size', imageDimension)), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
             var _ref4 = _slicedToArray(_ref3, 2),
                 name = _ref4[0],
                 transformed = _ref4[1];

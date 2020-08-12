@@ -3,7 +3,8 @@ import { join } from 'path'
 import { readFile } from 'fs'
 import imageTransform from '@tryghost/image-transform'
 
-const LocalStorage = require('../../../../current/core/server/adapters/storage/LocalFileStorage.js');
+const activeTheme = require(join(process.cwd(), 'current/core/frontend/services/themes/active'));
+const LocalStorage = require(join(process.cwd(), 'current/core/server/adapters/storage/LocalFileStorage'));
 
 const readFileAsync = fp => new Promise((resolve, reject) => readFile(fp, (err, data) => err ? reject(err) : resolve(data)))
 const stripLeadingSlash = s => s.indexOf('/') === 0 ? s.substring(1) : s
@@ -100,7 +101,7 @@ class Store extends LocalStorage {
 
     return new Promise((resolve, reject) => {
       Promise.all([
-        this.getUniqueFileName(image, directory),
+        this.getUniqueFileName(image, join(directory, 'original')),
         readFileAsync(image.path)
       ]).then(([ fileName, file ]) => {
         let config = {
@@ -120,7 +121,7 @@ class Store extends LocalStorage {
           this.s3().putObject(config).promise(),
           ...Object.keys(imageDimensions).map(imageDimension => {
             return Promise.all([
-              this.getUniqueFileName(image, directory + 'size/' + imageDimension),
+              this.getUniqueFileName(image, join(directory, 'size', imageDimension)),
               imageTransform.resizeFromBuffer(file, imageDimensions[imageDimension]),
             ])
             .then(([name, transformed]) => Object.assign({}, config, { Body: transformed, Key: stripLeadingSlash(name) }))
