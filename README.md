@@ -1,14 +1,15 @@
 # Ghost storage adapter S3
 
-An AWS S3 storage adapter for Ghost 1.x
+An AWS S3 storage adapter (based on https://github.com/colinmeinke/ghost-storage-adapter-s3)
 
-For Ghost 0.10.x and 0.11.x support check out
-[Ghost storage adapter s3 v1.3.0](https://github.com/colinmeinke/ghost-storage-adapter-s3/releases/tag/v1.3.0).
+This fork adds the following :
+- a fallback to the local storage in case of 404 from S3 Storage
+- generating and saving responsive images alongside the original one in S3
 
 ## Installation
 
 ```shell
-npm install ghost-storage-adapter-s3
+npm install https://github.com/coldiary/ghost-storage-adapter-s3.git
 mkdir -p ./content/adapters/storage
 cp -r ./node_modules/ghost-storage-adapter-s3 ./content/adapters/storage/s3
 ```
