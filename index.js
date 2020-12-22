@@ -122,11 +122,14 @@ class Store extends LocalStorage {
   }
 
   save(image, targetDir) {
+
     var _this3 = this;
 
     var directory = targetDir || this.getTargetDir(this.pathPrefix);
+    var newdirectory = directory.split('/');
 
-    var imageSizes = activeTheme.get().config('image_sizes');
+    //var imageSizes = activeTheme.get().config('image_sizes');
+    var imageSizes = {s: { width: 300 },m: { width: 600 },l: { width: 1000 }};
 
     var imageDimensions = Object.keys(imageSizes).reduce(function (dimensions, size) {
       var _imageSizes$size = imageSizes[size],
@@ -139,50 +142,81 @@ class Store extends LocalStorage {
       }, dimensions);
     }, {});
 
-    return new Promise(function (resolve, reject) {
-      Promise.all([_this3.getUniqueFileName(image, (0, _path.join)(directory, 'original')), readFileAsync(image.path)]).then(function (_ref) {
-        var _ref2 = _slicedToArray(_ref, 2),
-            fileName = _ref2[0],
-            file = _ref2[1];
+    if(image.path.includes('_processed')) {
 
-        var config = {
-          ACL: _this3.acl,
-          Body: file,
-          Bucket: _this3.bucket,
-          CacheControl: `max-age=${30 * 24 * 60 * 60}`,
-          ContentType: image.type,
-          Key: stripLeadingSlash(fileName)
-        };
+      // Resizes of Original File Only
+      return new Promise(function (resolve, reject) {
+        Promise.all([_this3.getUniqueFileName(image, directory), readFileAsync(image.path)]).then(function (_ref) {
+          var _ref2 = _slicedToArray(_ref, 2),
+              fileName = _ref2[0],
+              file = _ref2[1];
 
-        if (_this3.serverSideEncryption !== '') {
-          config.ServerSideEncryption = _this3.serverSideEncryption;
-        }
+          var config = {
+            ACL: _this3.acl,
+            Body: file,
+            Bucket: _this3.bucket,
+            CacheControl: `max-age=${30 * 24 * 60 * 60}`,
+            ContentType: image.type,
+            Key: stripLeadingSlash(fileName)
+          };
 
-        Promise.all([_this3.s3().putObject(config).promise()].concat(_toConsumableArray(Object.keys(imageDimensions).map(function (imageDimension) {
-          return Promise.all([_this3.getUniqueFileName(image, (0, _path.join)(directory, 'size', imageDimension)), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
-            var _ref4 = _slicedToArray(_ref3, 2),
-                name = _ref4[0],
-                transformed = _ref4[1];
+          if (_this3.serverSideEncryption !== '') {
+            config.ServerSideEncryption = _this3.serverSideEncryption;
+          }
 
-            return Object.assign({}, config, { Body: transformed, Key: stripLeadingSlash(name) });
-          }).then(function (config) {
-            return _this3.s3().putObject(config).promise();
+          Promise.all([_this3.s3().putObject(config).promise()].concat(_toConsumableArray(Object.keys(imageDimensions).map(function (imageDimension) {
+            return Promise.all([_this3.getUniqueFileName(image, (0, _path.join)(newdirectory[0], 'size', imageDimension, newdirectory[1], newdirectory[2])), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
+              var _ref4 = _slicedToArray(_ref3, 2),
+                  name = _ref4[0],
+                  transformed = _ref4[1];
+
+              return Object.assign({}, config, { Body: transformed, Key: stripLeadingSlash(name) });
+            }).then(function (config) {
+              return _this3.s3().putObject(config).promise();
+            });
+          })))).then(function () {
+            return resolve(`${_this3.host}/${fileName}`);
+          }).catch(function (err) {
+            return reject(err);
           });
-        })))).then(function () {
-          return resolve(`${_this3.host}/${fileName}`);
         }).catch(function (err) {
           return reject(err);
         });
-      }).catch(function (err) {
-        return reject(err);
       });
-    });
+    
+    } else {
+
+      return new Promise(function (resolve, reject) {
+        Promise.all([_this3.getUniqueFileName(image, directory), readFileAsync(image.path)]).then(function (_ref) {
+          var _ref2 = _slicedToArray(_ref, 2),
+              fileName = _ref2[0],
+              file = _ref2[1];
+  
+          var config = {
+            ACL: _this3.acl,
+            Body: file,
+            Bucket: _this3.bucket,
+            CacheControl: `max-age=${30 * 24 * 60 * 60}`,
+            ContentType: image.type,
+            Key: stripLeadingSlash(fileName)
+          };
+          if (_this3.serverSideEncryption !== '') {
+            config.ServerSideEncryption = _this3.serverSideEncryption;
+          }
+          _this3.s3().putObject(config, function (err, data) {
+            return err ? reject(err) : resolve(`${_this3.host}/${fileName}`);
+          });
+        }).catch(function (err) {
+          return reject(err);
+        });
+      });
+
+    }
   }
 
   serve() {
     var _this4 = this;
 
-    console.log(LocalStorage);
     return function (req, res, next) {
       return _this4.s3().getObject({
         Bucket: _this4.bucket,
@@ -190,7 +224,8 @@ class Store extends LocalStorage {
       }).on('httpHeaders', function (statusCode, headers, response) {
         return res.set(headers);
       }).createReadStream().on('error', function (err) {
-        return LocalStorage.prototype.serve.call(_this4)(req, res, next);
+        res.status(404);
+        next(err);
       }).pipe(res);
     };
   }
@@ -199,24 +234,23 @@ class Store extends LocalStorage {
     var _this5 = this;
 
     options = options || {};
-    var directory = stripEndingSlash(this.pathPrefix || '');
 
     return new Promise(function (resolve, reject) {
       // remove trailing slashes
       var path = (options.path || '').replace(/\/$|\\$/, '');
 
-      // check if path is stored in s3 then stripping it
-      if (path.startsWith(_this5.host)) {
-        path = path.substring(_this5.host.length);
-        _this5.s3().getObject({
-          Bucket: _this5.bucket,
-          Key: stripLeadingSlash(path)
-        }, function (err, data) {
-          return err ? reject(err) : resolve(data.Body);
-        });
-      } else {
-        return LocalStorage.prototype.read.call(_this5, options);
+      // check if path is stored in s3 handled by us
+      if (!path.startsWith(_this5.host)) {
+        reject(new Error(`${path} is not stored in s3`));
       }
+      path = path.substring(_this5.host.length);
+
+      _this5.s3().getObject({
+        Bucket: _this5.bucket,
+        Key: stripLeadingSlash(path)
+      }, function (err, data) {
+        return err ? reject(err) : resolve(data.Body);
+      });
     });
   }
 }
