@@ -14,7 +14,7 @@
         "env",
         {
           "targets": {
-            "node": "4.5"
+            "node": "14.15"
           },
           "exclude": [
             "transform-es2015-classes"
