@@ -22,7 +22,6 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
-var activeTheme = require((0, _path.join)(process.cwd(), 'current/core/frontend/services/themes/active'));
 var LocalStorage = require((0, _path.join)(process.cwd(), 'current/core/server/adapters/storage/LocalFileStorage'));
 
 var readFileAsync = function readFileAsync(fp) {
@@ -128,7 +127,6 @@ class Store extends LocalStorage {
     var directory = targetDir || this.getTargetDir(this.pathPrefix);
     var newdirectory = directory.split('/');
 
-    //var imageSizes = activeTheme.get().config('image_sizes');
     var imageSizes = {s: { width: 300 },m: { width: 600 },l: { width: 1000 }};
 
     var imageDimensions = Object.keys(imageSizes).reduce(function (dimensions, size) {
