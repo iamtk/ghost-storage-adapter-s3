@@ -1,7 +1,5 @@
 # Ghost storage adapter S3
 
-2021
-
 An AWS S3 storage adapter (based on https://github.com/colinmeinke/ghost-storage-adapter-s3)
 
 This fork adds the following :
