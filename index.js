@@ -54,6 +54,7 @@ class Store extends LocalStorage {
         serverSideEncryption = config.serverSideEncryption,
         forcePathStyle = config.forcePathStyle,
         signatureVersion = config.signatureVersion,
+        midnightPrefix = config.midnightPrefix,
         acl = config.acl;
 
     // Compatible with the aws-sdk's default environment variables
@@ -66,7 +67,7 @@ class Store extends LocalStorage {
 
     // Optional configurations
     this.host = process.env.GHOST_STORAGE_ADAPTER_S3_ASSET_HOST || assetHost || `https://s3${this.region === 'us-east-1' ? '' : `-${this.region}`}.amazonaws.com/${this.bucket}`;
-    this.pathPrefix = stripLeadingSlash(process.env.GHOST_STORAGE_ADAPTER_S3_PATH_PREFIX || pathPrefix || '');
+    this.pathPrefix = stripLeadingSlash(process.env.GHOST_STORAGE_ADAPTER_S3_PATH_PREFIX + midnightPrefix);
     this.endpoint = process.env.GHOST_STORAGE_ADAPTER_S3_ENDPOINT || endpoint || '';
     this.serverSideEncryption = process.env.GHOST_STORAGE_ADAPTER_S3_SSE || serverSideEncryption || '';
     this.s3ForcePathStyle = Boolean(process.env.GHOST_STORAGE_ADAPTER_S3_FORCE_PATH_STYLE) || Boolean(forcePathStyle) || false;
