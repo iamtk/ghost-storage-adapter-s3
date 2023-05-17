@@ -63,15 +63,5 @@
     "type": "git",
     "url": "https://github.com/colinmeinke/ghost-storage-adapter-s3.git"
   },
-  "scripts": {
-    "build": "babel ./src/index.js --out-file ./index.js",
-    "commit": "git-cz",
-    "fix": "standard --fix",
-    "lint": "standard --verbose | snazzy",
-    "prepublish": "npm run build",
-    "semantic-release": "semantic-release",
-    "test": "exit 0",
-    "travis-deploy-once": "travis-deploy-once"
-  },
   "version": "0.0.0-development"
 }
