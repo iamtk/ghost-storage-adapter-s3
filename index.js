@@ -121,6 +121,10 @@ class Store extends LocalStorage {
     return new _awsSdk2.default.S3(options);
   }
 
+  urlToPath(url) {
+    return url;
+  }
+
   save(image, targetDir) {
 
     var _this3 = this;
