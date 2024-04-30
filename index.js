@@ -18,6 +18,8 @@ var _imageTransform = require('@tryghost/image-transform');
 
 var _imageTransform2 = _interopRequireDefault(_imageTransform);
 
+var mime = require('mime');
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -73,6 +75,12 @@ class Store extends LocalStorage {
     this.s3ForcePathStyle = Boolean(process.env.GHOST_STORAGE_ADAPTER_S3_FORCE_PATH_STYLE) || Boolean(forcePathStyle) || false;
     this.signatureVersion = process.env.GHOST_STORAGE_ADAPTER_S3_SIGNATURE_VERSION || signatureVersion || 'v4';
     this.acl = process.env.GHOST_STORAGE_ADAPTER_S3_ACL || acl || 'public-read';
+
+    // New store required fields
+    this.staticFileURLPrefix = stripLeadingSlash(process.env.GHOST_STORAGE_ADAPTER_S3_PATH_PREFIX + midnightPrefix);
+    this.siteUrl = assetHost;
+    this.storagePath = midnightPrefix;
+    this.midnightPrefix = midnightPrefix;
   }
 
   delete(fileName, targetDir) {
@@ -127,6 +135,42 @@ class Store extends LocalStorage {
 
   save(image, targetDir) {
 
+    // Check target directory doesn't contain a full URL (i.e. http...)
+    //targetDir = '';
+    if(/(http(s?)):\/\//i.test(targetDir)) {
+      targetDir = '';
+    } else if (image.newPath) {
+
+      var fullimagePath = image.newPath;
+      var filename = fullimagePath.split('\\').pop().split('/').pop();
+      var imagePath = (fullimagePath.replace(filename, "")).slice(0, -1);
+
+      // Remove content/xxxx/ from path
+      if (imagePath.includes("content/images/")) {
+        imagePath = imagePath.replace("content/images/", "");
+      }
+
+      if (imagePath.includes("content/media/")) {
+        imagePath = imagePath.replace("content/media/", "");
+      }
+
+      if (imagePath.includes("content/files/")) {
+        imagePath = imagePath.replace("content/files/", "");
+      }
+
+      if (imagePath.includes("content/")) {
+        imagePath = imagePath.replace("content/", "");
+      }
+
+      targetDir = imagePath;
+    }
+
+    // Check file has a type and if not, get one.
+    if (!image.type) {
+      var mime_type = mime.lookup(image.name)
+      image.type = mime_type;
+    }
+
     var _this3 = this;
 
     var directory = targetDir || this.getTargetDir(this.pathPrefix);
@@ -168,7 +212,14 @@ class Store extends LocalStorage {
           }
 
           Promise.all([_this3.s3().putObject(config).promise()].concat(_toConsumableArray(Object.keys(imageDimensions).map(function (imageDimension) {
-            return Promise.all([_this3.getUniqueFileName(image, (0, _path.join)(newdirectory[0], 'size', imageDimension, newdirectory[1], newdirectory[2])), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
+
+            if (newdirectory.length == 4) {
+              var size_path = (0, _path.join)(newdirectory[0], newdirectory[1], 'size', imageDimension, newdirectory[2], newdirectory[3]);
+            } else {
+              var size_path = (0, _path.join)(newdirectory[0], 'size', imageDimension, newdirectory[1], newdirectory[2]);
+            }
+            
+            return Promise.all([_this3.getUniqueFileName(image, size_path), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
               var _ref4 = _slicedToArray(_ref3, 2),
                   name = _ref4[0],
                   transformed = _ref4[1];
