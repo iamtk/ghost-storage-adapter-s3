@@ -133,6 +133,41 @@ class Store extends LocalStorage {
     return url;
   }
 
+  saveRaw(buffer, targetPath) {
+    // buffer = raw image data
+    // targetPath =  Full image path - e.g. 2024/05/https-3a-2f-2fsubstack-post-media-s3-amazonaws-com-2fpublic-2fimages-2fccb4ad1b-54de-44a5-9be1-19b97419a88e_300x460-jpeg.jpg
+    var getFilename = targetPath.substring(targetPath.lastIndexOf('/')+1);
+    
+    if (this.midnightPrefix == "") {
+      var new_targetPath = [this.pathPrefix, targetPath].join('/');
+    } else {
+      var new_targetPath = [this.pathPrefix, this.midnightPrefix, targetPath].join('/');
+    }
+
+    // Get file type
+    var mime_type = mime.lookup(getFilename);
+
+    var _this3 = this;
+
+      return new Promise(function (resolve, reject) {
+          var config = {
+            ACL: _this3.acl,
+            Body: buffer,
+            Bucket: _this3.bucket,
+            CacheControl: `max-age=${30 * 24 * 60 * 60}`, 
+            ContentType: mime_type,
+            Key: stripLeadingSlash(new_targetPath)
+          };
+          if (_this3.serverSideEncryption !== '') {
+            config.ServerSideEncryption = _this3.serverSideEncryption;
+          }
+
+          _this3.s3().putObject(config, function (err, data) {
+            return err ? reject(err) : resolve(`${_this3.host}/${new_targetPath}`);
+          });
+      });
+  }
+
   save(image, targetDir) {
 
     // Check target directory doesn't contain a full URL (i.e. http...)
