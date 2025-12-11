@@ -136,8 +136,27 @@ class Store extends LocalStorage {
   saveRaw(buffer, targetPath) {
     // buffer = raw image data
     // targetPath =  Full image path - e.g. 2024/05/https-3a-2f-2fsubstack-post-media-s3-amazonaws-com-2fpublic-2fimages-2fccb4ad1b-54de-44a5-9be1-19b97419a88e_300x460-jpeg.jpg
-    var getFilename = targetPath.substring(targetPath.lastIndexOf('/')+1);
-    
+    //var getFilename = targetPath.substring(targetPath.lastIndexOf('/')+1);
+
+    var lastSlashIndex = targetPath.lastIndexOf('/');
+    var dir = lastSlashIndex !== -1 ? targetPath.substring(0, lastSlashIndex) : '';
+    var filename = lastSlashIndex !== -1 ? targetPath.substring(lastSlashIndex + 1) : targetPath;
+
+    // Catch Icons & Thumbnails
+    // --- if the path contains /icon/, add a timestamp to the filename ---
+    if (targetPath.indexOf('/icon/') !== -1) {
+        // filename = "icon.png" -> "icon-<timestamp>.png"
+        var dotIndex = filename.lastIndexOf('.');
+        var name = dotIndex !== -1 ? filename.substring(0, dotIndex) : filename;
+        var ext = dotIndex !== -1 ? filename.substring(dotIndex) : '';
+
+        var timestamp = Date.now(); // or use something else if you prefer
+        filename = name + '-' + timestamp + ext;
+
+        // rebuild targetPath with the new filename
+        targetPath = (dir ? dir + '/' : '') + filename;
+    }
+
     if (this.midnightPrefix == "") {
       var new_targetPath = [this.pathPrefix, targetPath].join('/');
     } else {
@@ -145,7 +164,7 @@ class Store extends LocalStorage {
     }
 
     // Get file type
-    var mime_type = mime.lookup(getFilename);
+    var mime_type = mime.lookup(filename);
 
     var _this3 = this;
 
