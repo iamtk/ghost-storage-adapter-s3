@@ -144,7 +144,7 @@ class Store extends LocalStorage {
 
     // Catch Icons & Thumbnails
     // --- if the path contains /icon/, add a timestamp to the filename ---
-    if (targetPath.indexOf('/icon/') !== -1) {
+    if (targetPath.indexOf('icon/') !== -1) {
         // filename = "icon.png" -> "icon-<timestamp>.png"
         var dotIndex = filename.lastIndexOf('.');
         var name = dotIndex !== -1 ? filename.substring(0, dotIndex) : filename;
