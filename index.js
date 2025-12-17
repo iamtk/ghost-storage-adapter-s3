@@ -293,44 +293,67 @@ class Store extends LocalStorage {
         });
       });
     
-    } else {
-
-      // ----- ORIGINAL FILE: STREAM EVERYTHING (images, media, files) -----
-          return new Promise(function (resolve, reject) {
-            _this3.getUniqueFileName(image, directory).then(function (fileName) {
-              var config = {
-                ACL: _this3.acl,
-                Bucket: _this3.bucket,
-                CacheControl: `max-age=${30 * 24 * 60 * 60}`,
-                ContentType: image.type,
-                Key: stripLeadingSlash(fileName)
-              };
+} else {
+        // ORIGINAL FILE: STREAM EVERYTHING (images, media, files)
+        return new Promise(function (resolve, reject) {
+          _this3.getUniqueFileName(image, directory)
+            .then(function (fileName) {
+              // Stat the file first so we can send ContentLength
+              _fs.stat(image.path, function (err, stats) {
+                if (err) {
+                  return reject(err);
+                }
+                
+                if (_this3.serverSideEncryption !== '') {
+                  config.ServerSideEncryption = _this3.serverSideEncryption;
+                }
       
-              if (_this3.serverSideEncryption !== '') {
-                config.ServerSideEncryption = _this3.serverSideEncryption;
-              }
+                var fileStream = _fs.createReadStream(image.path);
       
-              // Optional: set ContentLength for extra safety
-              // var stats = _fs.statSync(image.path);
-              // config.ContentLength = stats.size;
+                fileStream.on('error', function (err) {
+                  console.error('[S3 adapter] stream error:', err);
+                  return reject(err);
+                });
       
-              var fileStream = _fs.createReadStream(image.path);
+                var config = {
+                  ACL: _this3.acl,
+                  Bucket: _this3.bucket,
+                  Key: stripLeadingSlash(fileName),
+                  Body: fileStream,
+                  CacheControl: `max-age=${30 * 24 * 60 * 60}`,
+                  ContentType: image.type,
+                  ContentLength: stats.size // <- IMPORTANT FOR DIGITALOCEAN SPACES
+                };
       
-              fileStream.on('error', function (err) {
-                return reject(err);
+                if (_this3.serverSideEncryption !== '') {
+                  config.ServerSideEncryption = _this3.serverSideEncryption;
+                }
+      
+                // Use the high-level uploader so large files use multipart upload
+                _this3.s3().upload(config, function (err, data) {
+                  if (err) {
+                    // Helpful debug info while you dial this in
+                    console.error('S3 upload error:', {
+                      message: err.message,
+                      code: err.code,
+                      statusCode: err.statusCode,
+                      region: _this3.region,
+                      bucket: _this3.bucket,
+                      key: config.Key
+                    });
+                    return reject(err);
+                  }
+      
+                  return resolve(`${_this3.host}/${fileName}`);
+                });
               });
-      
-              config.Body = fileStream;
-      
-              _this3.s3().putObject(config, function (err, data) {
-                return err ? reject(err) : resolve(`${_this3.host}/${fileName}`);
-              });
-            }).catch(function (err) {
+            })
+            .catch(function (err) {
               return reject(err);
             });
-          });
-        }
+        });
       }
+    }
 
   serve() {
     var _this4 = this;
