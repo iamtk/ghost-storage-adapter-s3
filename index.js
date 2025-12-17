@@ -245,14 +245,17 @@ class Store extends LocalStorage {
     }, {});
 
     if(image.path.includes('_processed')) {
-
+    
       // Resizes of Original File Only
       return new Promise(function (resolve, reject) {
-        Promise.all([_this3.getUniqueFileName(image, directory), readFileAsync(image.path)]).then(function (_ref) {
+        Promise.all([
+          _this3.getUniqueFileName(image, directory),
+          readFileAsync(image.path)
+        ]).then(function (_ref) {
           var _ref2 = _slicedToArray(_ref, 2),
               fileName = _ref2[0],
               file = _ref2[1];
-
+    
           var config = {
             ACL: _this3.acl,
             Body: file,
@@ -261,39 +264,81 @@ class Store extends LocalStorage {
             ContentType: image.type,
             Key: stripLeadingSlash(fileName)
           };
-
+    
           if (_this3.serverSideEncryption !== '') {
             config.ServerSideEncryption = _this3.serverSideEncryption;
           }
-
-          Promise.all([_this3.s3().putObject(config).promise()].concat(_toConsumableArray(Object.keys(imageDimensions).map(function (imageDimension) {
-
-            if (newdirectory.length == 4) {
-              var size_path = (0, _path.join)(newdirectory[0], newdirectory[1], 'size', imageDimension, newdirectory[2], newdirectory[3]);
-            } else {
-              var size_path = (0, _path.join)(newdirectory[0], 'size', imageDimension, newdirectory[1], newdirectory[2]);
-            }
-            
-            return Promise.all([_this3.getUniqueFileName(image, size_path), _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])]).then(function (_ref3) {
-              var _ref4 = _slicedToArray(_ref3, 2),
-                  name = _ref4[0],
-                  transformed = _ref4[1];
-
-              return Object.assign({}, config, { Body: transformed, Key: stripLeadingSlash(name) });
-            }).then(function (config) {
-              return _this3.s3().putObject(config).promise();
+    
+          var sizes = Object.keys(imageDimensions);
+    
+          // OPTIONAL: skip responsive sizes for very large images
+          //var MAX_RESPONSIVE_BYTES = 8 * 1024 * 1024; // 8MB, tune as you like
+          //var generateResponsive = file.length <= MAX_RESPONSIVE_BYTES;
+    
+          var firstUploadPromise = _this3.s3().putObject(config).promise();
+    
+          /*
+          if (!generateResponsive || sizes.length === 0) {
+            // Just upload the main image, no extra sizes
+            return firstUploadPromise.then(function () {
+              return resolve(`${_this3.host}/${fileName}`);
             });
-          })))).then(function () {
+          }
+          */
+    
+          // Sequentially process each responsive size to keep memory low
+          sizes.reduce(function (prev, imageDimension) {
+            return prev.then(function () {
+              var size_path;
+              if (newdirectory.length == 4) {
+                size_path = (0, _path.join)(
+                  newdirectory[0],
+                  newdirectory[1],
+                  'size',
+                  imageDimension,
+                  newdirectory[2],
+                  newdirectory[3]
+                );
+              } else {
+                size_path = (0, _path.join)(
+                  newdirectory[0],
+                  'size',
+                  imageDimension,
+                  newdirectory[1],
+                  newdirectory[2]
+                );
+              }
+    
+              return Promise.all([
+                _this3.getUniqueFileName(image, size_path),
+                _imageTransform2.default.resizeFromBuffer(file, imageDimensions[imageDimension])
+              ]).then(function (_ref3) {
+                var _ref4 = _slicedToArray(_ref3, 2),
+                    name = _ref4[0],
+                    transformed = _ref4[1];
+    
+                var sizeConfig = Object.assign({}, config, {
+                  Body: transformed,
+                  Key: stripLeadingSlash(name)
+                });
+    
+                return _this3.s3().putObject(sizeConfig).promise();
+              });
+            });
+          }, firstUploadPromise)
+          .then(function () {
             return resolve(`${_this3.host}/${fileName}`);
-          }).catch(function (err) {
+          })
+          .catch(function (err) {
             return reject(err);
           });
+    
         }).catch(function (err) {
           return reject(err);
         });
       });
     
-} else {
+    } else {
         // ORIGINAL FILE: STREAM EVERYTHING (images, media, files)
         return new Promise(function (resolve, reject) {
           _this3.getUniqueFileName(image, directory)
