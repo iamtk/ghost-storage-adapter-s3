@@ -188,7 +188,7 @@ class Store extends LocalStorage {
   }
 
   save(image, targetDir) {
-
+  
     // Check target directory doesn't contain a full URL (i.e. http...)
     //targetDir = '';
     if(/(http(s?)):\/\//i.test(targetDir)) {
@@ -196,6 +196,7 @@ class Store extends LocalStorage {
     } else if (image.newPath) {
 
       var fullimagePath = image.newPath;
+      
       var filename = fullimagePath.split('\\').pop().split('/').pop();
       var imagePath = (fullimagePath.replace(filename, "")).slice(0, -1);
 
@@ -294,33 +295,42 @@ class Store extends LocalStorage {
     
     } else {
 
-      return new Promise(function (resolve, reject) {
-        Promise.all([_this3.getUniqueFileName(image, directory), readFileAsync(image.path)]).then(function (_ref) {
-          var _ref2 = _slicedToArray(_ref, 2),
-              fileName = _ref2[0],
-              file = _ref2[1];
-  
-          var config = {
-            ACL: _this3.acl,
-            Body: file,
-            Bucket: _this3.bucket,
-            CacheControl: `max-age=${30 * 24 * 60 * 60}`,
-            ContentType: image.type,
-            Key: stripLeadingSlash(fileName)
-          };
-          if (_this3.serverSideEncryption !== '') {
-            config.ServerSideEncryption = _this3.serverSideEncryption;
-          }
-          _this3.s3().putObject(config, function (err, data) {
-            return err ? reject(err) : resolve(`${_this3.host}/${fileName}`);
+      // ----- ORIGINAL FILE: STREAM EVERYTHING (images, media, files) -----
+          return new Promise(function (resolve, reject) {
+            _this3.getUniqueFileName(image, directory).then(function (fileName) {
+              var config = {
+                ACL: _this3.acl,
+                Bucket: _this3.bucket,
+                CacheControl: `max-age=${30 * 24 * 60 * 60}`,
+                ContentType: image.type,
+                Key: stripLeadingSlash(fileName)
+              };
+      
+              if (_this3.serverSideEncryption !== '') {
+                config.ServerSideEncryption = _this3.serverSideEncryption;
+              }
+      
+              // Optional: set ContentLength for extra safety
+              // var stats = _fs.statSync(image.path);
+              // config.ContentLength = stats.size;
+      
+              var fileStream = _fs.createReadStream(image.path);
+      
+              fileStream.on('error', function (err) {
+                return reject(err);
+              });
+      
+              config.Body = fileStream;
+      
+              _this3.s3().putObject(config, function (err, data) {
+                return err ? reject(err) : resolve(`${_this3.host}/${fileName}`);
+              });
+            }).catch(function (err) {
+              return reject(err);
+            });
           });
-        }).catch(function (err) {
-          return reject(err);
-        });
-      });
-
-    }
-  }
+        }
+      }
 
   serve() {
     var _this4 = this;
